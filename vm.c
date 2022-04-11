@@ -439,6 +439,53 @@ mprotect(void *addr, int len){
   return 0;
 }
 
+//
+int
+munprotect(void *addr, int len){
+  struct proc *current = myproc();
+
+  // verify length is greater than 0 (zero)
+  if (len <= 0) {
+    cprintf("\nLen is less than or equal to zero!\n");
+    return -1;
+  }
+
+  // verify that the base is aligned with the address space
+  if ((int)(((int) addr) % PGSIZE)  != 0) {
+    cprintf("\nUnaligned!\n");
+    return -1;
+  }
+
+  // verify it does not go beyond the address space of the process
+  if (((int) addr) < current->vbase || ((int) addr) > current->vlimit) {
+    cprintf("\nBeyond Address Space!\n");
+    cprintf("\n%d > %d\n", ((int) addr) + (len * PGSIZE), current->vlimit);
+    return -1;
+  }
+
+  pte_t *entry;
+  int i; //index for for loop
+
+  for (i = (int) addr; i < (int) addr + (len * PGSIZE); i += PGSIZE) {
+
+    entry = walkpgdir(current->pgdir, (void*) i, 0);
+
+    if (entry) {
+      if ((*entry & PTE_U) != 0 && (*entry & PTE_P) != 0) {
+        *entry |= PTE_W;
+      }
+      else {
+        return -1;
+      }
+    } 
+
+  }
+  
+  lcr3(V2P(current->pgdir));
+
+  return 0;
+}
+
 //PAGEBREAK!
 // Blank page.
 //PAGEBREAK!
